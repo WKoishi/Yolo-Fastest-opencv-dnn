@@ -83,35 +83,45 @@ def postprocess(frame, outs):
         drawPred(classIds[i], confidences[i], left, top, left + width, top + height)
 
 if __name__=='__main__':
-    parser = argparse.ArgumentParser(description='Object Detection using YOLO in OPENCV')
-    parser.add_argument('--image', type=str, default='dog.jpg', help='Path to image file.')
-    args = parser.parse_args()
 
     net = cv.dnn.readNetFromDarknet(modelConfiguration, modelWeights)
     net.setPreferableBackend(cv.dnn.DNN_BACKEND_OPENCV)
     net.setPreferableTarget(cv.dnn.DNN_TARGET_CPU)
-    # Process inputs
-    frame = cv.imread(args.image)
+    
+    cap = cv.VideoCapture(1)
+    if not cap.isOpened():
+        print("Cannot open camera")
+        exit()
 
-    # Create a 4D blob from a frame.
-    blob = cv.dnn.blobFromImage(frame, 1/255.0, (inpWidth, inpHeight), [0, 0, 0], swapRB=False, crop=False)
+    cap.set(cv.CAP_PROP_FRAME_WIDTH, 800)
+    cap.set(cv.CAP_PROP_FRAME_HEIGHT, 600)
 
-    # Sets the input to the network
-    net.setInput(blob)
+    while 1:
+        ret, frame = cap.read()
+        if ret:
+            # Create a 4D blob from a frame.
+            blob = cv.dnn.blobFromImage(frame, 1/255.0, (inpWidth, inpHeight), [0, 0, 0], swapRB=False, crop=False)
 
-    # Runs the forward pass to get output of the output layers
-    outs = net.forward(getOutputsNames(net))
- 
-    # Remove the bounding boxes with low confidence
-    postprocess(frame, outs)
+            # Sets the input to the network
+            net.setInput(blob)
 
-    # Put efficiency information. The function getPerfProfile returns the overall time for inference(t) and the timings for each of the layers(in layersTimes)
-    t, _ = net.getPerfProfile()
-    label = 'Inference time: %.2f ms' % (t * 1000.0 / cv.getTickFrequency())
-    cv.putText(frame, label, (0, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255))
+            # Runs the forward pass to get output of the output layers
+            outs = net.forward(getOutputsNames(net))
+        
+            # Remove the bounding boxes with low confidence
+            postprocess(frame, outs)
 
-    winName = 'Deep learning object detection in OpenCV'
-    cv.namedWindow(winName,0)
-    cv.imshow(winName, frame)
-    cv.waitKey(0)
+            # Put efficiency information. The function getPerfProfile returns the overall time for inference(t) and the timings for each of the layers(in layersTimes)
+            t, _ = net.getPerfProfile()
+            label = 'Inference time: %.2f ms' % (t * 1000.0 / cv.getTickFrequency())
+            cv.putText(frame, label, (0, 15), cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255))
+
+            winName = 'Deep learning object detection in OpenCV'
+            cv.imshow(winName, frame)
+
+        # press Esc to exit
+        if cv.waitKey(1)&0XFF == 27:
+            break
+
+    cap.release()
     cv.destroyAllWindows()
