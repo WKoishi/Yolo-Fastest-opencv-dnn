@@ -49,7 +49,6 @@ def postprocess(frame, outs):
     frameHeight = frame.shape[0]
     frameWidth = frame.shape[1]
 
-    sta = perf_counter()
     # Scan through all the bounding boxes output from the network and keep only the
     # ones with high confidence scores. Assign the box's class label as the class with the highest score.
     classIds = []
@@ -76,10 +75,6 @@ def postprocess(frame, outs):
     # Perform non maximum suppression to eliminate redundant overlapping boxes with
     # lower confidences.
     indices = cv.dnn.NMSBoxes(boxes, confidences, confThreshold, nmsThreshold)
-
-    fin = perf_counter()
-    print(fin-sta)
-
     for i in indices:
         i = i[0]
         box = boxes[i]
@@ -94,6 +89,8 @@ if __name__=='__main__':
     net = cv.dnn.readNetFromDarknet(modelConfiguration, modelWeights)
     net.setPreferableBackend(cv.dnn.DNN_BACKEND_OPENCV)
     net.setPreferableTarget(cv.dnn.DNN_TARGET_CPU)
+
+    output_layers = getOutputsNames(net)
     
     cap = cv.VideoCapture(1)
     if not cap.isOpened():
@@ -113,7 +110,7 @@ if __name__=='__main__':
             net.setInput(blob)
 
             # Runs the forward pass to get output of the output layers
-            outs = net.forward(getOutputsNames(net))
+            outs = net.forward(output_layers)
         
             # Remove the bounding boxes with low confidence
             postprocess(frame, outs)
