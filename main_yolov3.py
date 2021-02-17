@@ -1,6 +1,6 @@
 import cv2 as cv
-import argparse
 import numpy as np
+from time import perf_counter
 
 # Initialize the parameters
 confThreshold = 0.25  # Confidence threshold
@@ -49,30 +49,37 @@ def postprocess(frame, outs):
     frameHeight = frame.shape[0]
     frameWidth = frame.shape[1]
 
+    sta = perf_counter()
     # Scan through all the bounding boxes output from the network and keep only the
     # ones with high confidence scores. Assign the box's class label as the class with the highest score.
     classIds = []
     confidences = []
     boxes = []
     for out in outs:
-        for detection in out:
-            scores = detection[5:]
-            classId = np.argmax(scores)
-            confidence = scores[classId]
-            if confidence > confThreshold:
-                center_x = int(detection[0] * frameWidth)
-                center_y = int(detection[1] * frameHeight)
-                width = int(detection[2] * frameWidth)
-                height = int(detection[3] * frameHeight)
-                left = int(center_x - width / 2)
-                top = int(center_y - height / 2)
-                classIds.append(classId)
-                confidences.append(float(confidence))
-                boxes.append([left, top, width, height])
+        max_scores_index = np.argmax(out[:,5:], axis=1)
+        max_scores = out[:,5:][np.arange(out.shape[0]), max_scores_index]
+        select_index = max_scores > confThreshold
+        out = out[select_index,:]
+        max_scores = max_scores[select_index]
+        max_scores_index = max_scores_index[select_index]
+        for i, detection in enumerate(out):
+            center_x = int(detection[0] * frameWidth)
+            center_y = int(detection[1] * frameHeight)
+            width = int(detection[2] * frameWidth)
+            height = int(detection[3] * frameHeight)
+            left = int(center_x - width / 2)
+            top = int(center_y - height / 2)
+            classIds.append(max_scores_index[i])
+            confidences.append(float(max_scores[i]))
+            boxes.append([left, top, width, height])
 
     # Perform non maximum suppression to eliminate redundant overlapping boxes with
     # lower confidences.
     indices = cv.dnn.NMSBoxes(boxes, confidences, confThreshold, nmsThreshold)
+
+    fin = perf_counter()
+    print(fin-sta)
+
     for i in indices:
         i = i[0]
         box = boxes[i]
